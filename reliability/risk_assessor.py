@@ -1,3 +1,4 @@
+import ast
 from typing import Dict, List
 
 
@@ -26,6 +27,21 @@ def assess_risk(
             "reasons": ["No fix was produced."],
             "should_autofix": False,
         }
+
+    try:
+        original_tree = ast.parse(original_code)
+        fixed_tree = ast.parse(fixed_code)
+    except SyntaxError:
+        # This structural comparison applies only when both snippets parse.
+        pass
+    else:
+        if original_tree.body and not fixed_tree.body:
+            return {
+                "score": 0,
+                "level": "high",
+                "reasons": ["Proposed fix removes all Python statements. Human review required."],
+                "should_autofix": False,
+            }
 
     original_lines = original_code.strip().splitlines()
     fixed_lines = fixed_code.strip().splitlines()
@@ -56,6 +72,10 @@ def assess_risk(
     if "return" in original_code and "return" not in fixed_code:
         score -= 30
         reasons.append("Return statements may have been removed.")
+
+    if "print(" in original_code and "print(" not in fixed_code:
+        score -= 30
+        reasons.append("Console output may have been removed or redirected; verify behavior.")
 
     if "except:" in original_code and "except:" not in fixed_code:
         # This is usually good, but still risky.

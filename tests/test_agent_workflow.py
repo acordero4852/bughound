@@ -47,3 +47,13 @@ def test_mock_client_forces_llm_fallback_to_heuristics_for_analysis():
     assert any(issue.get("type") == "Code Quality" for issue in result["issues"])
     # Ensure we logged the fallback path
     assert any("Falling back to heuristics" in entry.get("message", "") for entry in result["logs"])
+
+
+def test_comment_only_rewrite_of_executable_code_requires_human_review():
+    # The TODO string triggers a false positive, and MockClient returns a
+    # comment-only fix. Losing the assignment must never qualify for auto-fix.
+    result = BugHoundAgent(client=MockClient()).run('label = "TODO"\n')
+
+    assert result["risk"]["should_autofix"] is False
+    assert result["risk"]["level"] == "high"
+    assert any("Human review recommended" in entry["message"] for entry in result["logs"])

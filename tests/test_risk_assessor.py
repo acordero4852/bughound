@@ -46,3 +46,27 @@ def test_missing_return_is_penalized():
     )
     assert risk["score"] < 100
     assert any("Return" in r or "return" in r for r in risk["reasons"])
+
+
+def test_redirecting_console_output_requires_review_despite_low_severity():
+    original = "def greet():\n    print('Hello')\n    return True\n"
+    fixed = "import logging\n\ndef greet():\n    logging.info('Hello')\n    return True\n"
+    risk = assess_risk(
+        original_code=original,
+        fixed_code=fixed,
+        issues=[{"type": "Code Quality", "severity": "Low", "msg": "Use logging."}],
+    )
+
+    assert risk["score"] == 65
+    assert risk["level"] == "medium"
+    assert risk["should_autofix"] is False
+    assert any("Console output" in reason for reason in risk["reasons"])
+
+
+def test_preserving_console_output_does_not_trigger_new_penalty():
+    original = "def greet():\n    print('Hello')\n    return True\n"
+    risk = assess_risk(original_code=original, fixed_code=original, issues=[])
+
+    assert risk["score"] == 100
+    assert risk["should_autofix"] is True
+    assert not any("Console output" in reason for reason in risk["reasons"])
